@@ -100,8 +100,10 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ category, onClose }) => {
 
       if (entryError) throw entryError;
 
-      // Complete the task and award XP
-      await dailyTasksService.completeTask(user.id, `${category}-${category === 'morning' ? 'reflection' : 'journal'}`);
+      // Only complete the task and award XP if it hasn't been completed today
+      if (!isCompleted) {
+        await dailyTasksService.completeTask(user.id, `${category}-${category === 'morning' ? 'reflection' : 'journal'}`);
+      }
 
       // Refresh the completion status and history
       await checkCompletedStatus();
@@ -166,51 +168,47 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ category, onClose }) => {
             {error}
           </div>
         )}
-        {!isCompleted && (
-          <>
-            <div>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Optional title for your entry"
-                className="w-full px-4 py-2 mb-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                rows={6}
-                placeholder={`Write your ${category === 'morning' ? 'intentions for today' : 'reflections on the day'}...`}
-              />
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-gray-700 hover:text-gray-900"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || !content.trim()}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Entry
-                  </>
-                )}
-              </button>
-            </div>
-          </>
-        )}
+        <div>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Optional title for your entry"
+            className="w-full px-4 py-2 mb-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            rows={6}
+            placeholder={`Write your ${category === 'morning' ? 'intentions for today' : 'reflections on the day'}...`}
+          />
+        </div>
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 hover:text-gray-900"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !content.trim()}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                {isCompleted ? 'Add New Entry' : 'Save Entry'}
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {history.length > 0 && (
