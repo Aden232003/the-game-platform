@@ -26,6 +26,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
 
   useEffect(() => {
     fetchHistory();
+    checkCompletedStatus();
   }, [userId, category]);
 
   const fetchHistory = async () => {
@@ -47,6 +48,42 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
     } catch (err) {
       console.error('Error in fetchHistory:', err);
       setError('Failed to load previous entries');
+    }
+  };
+
+  const checkCompletedStatus = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('task_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('task_id', category === 'morning' ? 'morning-reflection' : 'evening-journal')
+        .eq('completion_date', today)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        console.error('Error checking completion status:', error);
+        return;
+      }
+
+      if (data) {
+        setIsCompleted(true);
+        // Fetch the corresponding journal entry
+        const { data: entryData, error: entryError } = await supabase
+          .from('user_insights')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('category', category)
+          .eq('created_at', data.completed_at)
+          .single();
+
+        if (!entryError && entryData) {
+          setEntry(entryData);
+        }
+      }
+    } catch (err) {
+      console.error('Error in checkCompletedStatus:', err);
     }
   };
 
@@ -119,7 +156,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   };
 
   const renderTaskContent = () => {
-    if (isCompleted && entry) {
+    if (isCompleted) {
       return (
         <div className="space-y-4 mt-6">
           <div className="flex items-center justify-between">
@@ -137,7 +174,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
               </button>
             </div>
           </div>
-          {isExpanded && (
+          {isExpanded && entry && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
