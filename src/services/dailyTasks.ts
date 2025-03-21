@@ -106,11 +106,30 @@ export const dailyTasksService = {
 
       if (profileError) {
         console.error('Error fetching profile:', profileError);
-        throw profileError;
-      }
+        // If profile doesn't exist, create it
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({ id: userId, xp: xpReward });
+        
+        if (insertError) {
+          console.error('Error creating profile:', insertError);
+          throw insertError;
+        }
+      } else {
+        // Update existing profile
+        const currentXP = profile?.xp || 0;
+        const newXP = currentXP + xpReward;
+        
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ xp: newXP })
+          .eq('id', userId);
 
-      const currentXP = profile?.xp || 0;
-      const newXP = currentXP + xpReward;
+        if (updateError) {
+          console.error('Error updating profile XP:', updateError);
+          throw updateError;
+        }
+      }
 
       // Insert task log
       const { error: logError } = await supabase
@@ -126,17 +145,6 @@ export const dailyTasksService = {
       if (logError) {
         console.error('Error inserting task log:', logError);
         throw logError;
-      }
-
-      // Update user XP
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ xp: newXP })
-        .eq('id', userId);
-
-      if (updateError) {
-        console.error('Error updating profile XP:', updateError);
-        throw updateError;
       }
 
       return xpReward;
