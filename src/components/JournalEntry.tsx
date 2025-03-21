@@ -3,17 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Clock, Save, Loader2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../types/supabase';
+import { dailyTasksService } from '../services/dailyTasks';
+import { useAuth } from '../contexts/AuthContext';
 
 type JournalEntry = Database['public']['Tables']['user_insights']['Row'];
 
 interface JournalEntryProps {
-  userId: string;
   category: 'morning' | 'evening';
-  onComplete: (xp: number) => void;
   onClose: () => void;
 }
 
-const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplete, onClose }) => {
+const JournalEntry: React.FC<JournalEntryProps> = ({ category, onClose }) => {
+  const { user } = useAuth();
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
@@ -25,17 +26,19 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   const [entry, setEntry] = useState<JournalEntry | null>(null);
 
   useEffect(() => {
-    fetchHistory();
-    checkCompletedStatus();
-  }, [userId, category]);
+    if (user) {
+      checkCompletedStatus();
+      fetchHistory();
+    }
+  }, [user, category]);
 
   const fetchHistory = async () => {
     try {
-      console.log('Fetching history for user:', userId, 'category:', category);
+      console.log('Fetching history for user:', user?.id, 'category:', category);
       const { data, error } = await supabase
         .from('user_insights')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', user?.id)
         .eq('category', category)
         .order('created_at', { ascending: false });
 
@@ -52,53 +55,9 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   };
 
   const checkCompletedStatus = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      console.log('Checking completion status for:', category, 'on:', today);
-      
-      // First check if there's a task log for today
-      const { data: taskLog, error: taskError } = await supabase
-        .from('task_logs')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('task_id', category === 'morning' ? 'morning-reflection' : 'evening-journal')
-        .eq('completion_date', today)
-        .single();
-
-      if (taskError && taskError.code !== 'PGRST116') {
-        console.error('Error checking task completion:', taskError);
-        return;
-      }
-
-      if (taskLog) {
-        console.log('Found completed task log:', taskLog);
-        setIsCompleted(true);
-        
-        // Then fetch the most recent journal entry for today
-        const { data: entryData, error: entryError } = await supabase
-          .from('user_insights')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('category', category)
-          .gte('created_at', today)
-          .lte('created_at', new Date(new Date(today).setHours(23, 59, 59)).toISOString())
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (entryError && entryError.code !== 'PGRST116') {
-          console.error('Error fetching journal entry:', entryError);
-          return;
-        }
-
-        if (entryData) {
-          console.log('Found journal entry:', entryData);
-          setEntry(entryData);
-        }
-      }
-    } catch (err) {
-      console.error('Error in checkCompletedStatus:', err);
-    }
+    if (!user) return;
+    const completed = await dailyTasksService.checkCompletionStatus(user.id, category);
+    setIsCompleted(completed);
   };
 
   const generateTitle = (content: string) => {
@@ -120,48 +79,39 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   };
 
   const handleSave = async () => {
-    if (!content.trim()) {
-      setError('Please enter some content before saving');
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
-
+    if (!user) return;
+    
     try {
-      console.log('Saving entry for user:', userId);
+      setSaving(true);
+      setError(null);
+
+      // Save the journal entry
       const entryTitle = title.trim() || generateTitle(content);
       const entryData = {
-        user_id: userId,
+        user_id: user.id,
         category,
         content,
         title: entryTitle
       };
-      console.log('Entry data:', entryData);
 
-      const { data, error } = await supabase
+      const { error: entryError } = await supabase
         .from('user_insights')
-        .insert(entryData)
-        .select()
-        .single();
+        .insert([entryData]);
 
-      if (error) {
-        console.error('Error saving entry:', error);
-        throw error;
-      }
+      if (entryError) throw entryError;
 
-      console.log('Entry saved successfully:', data);
+      // Complete the task and award XP
+      await dailyTasksService.completeTask(user.id, `${category}-${category === 'morning' ? 'reflection' : 'journal'}`);
 
-      // Only award XP if the task hasn't been completed today
-      if (!isCompleted) {
-        await onComplete(5);
-      }
-
-      setContent('');
-      setTitle('');
+      // Refresh the completion status and history
+      await checkCompletedStatus();
       await fetchHistory();
+
+      // Clear the form
+      setTitle('');
+      setContent('');
     } catch (err) {
-      console.error('Error in handleSave:', err);
+      console.error('Error saving entry:', err);
       setError('Failed to save entry. Please try again.');
     } finally {
       setSaving(false);

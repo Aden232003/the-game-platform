@@ -157,5 +157,30 @@ export const dailyTasksService = {
       console.error('Error in getTaskLogs:', err);
       return [];
     }
+  },
+
+  async checkCompletionStatus(userId: string, category: string): Promise<boolean> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      console.log(`Checking completion status for: ${category} on: ${today}`);
+
+      const { data: taskLogs, error } = await supabase
+        .from('task_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('task_id', `${category}-${category === 'morning' ? 'reflection' : 'journal'}`)
+        .eq('completion_date', today)
+        .single();
+
+      if (error) {
+        console.error('Error checking completion status:', error);
+        return false;
+      }
+
+      return !!taskLogs;
+    } catch (error) {
+      console.error('Error in checkCompletionStatus:', error);
+      return false;
+    }
   }
 }; 
