@@ -15,6 +15,7 @@ interface JournalEntryProps {
 
 const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplete, onClose }) => {
   const [content, setContent] = useState('');
+  const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<JournalEntry[]>([]);
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
@@ -40,6 +41,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   };
 
   const generateTitle = (content: string) => {
+    if (!content.trim()) return 'Untitled Entry';
     const words = content.trim().split(/\s+/);
     const title = words.slice(0, 3).join(' ');
     return title + (words.length > 3 ? '...' : '');
@@ -61,14 +63,14 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
 
     setSaving(true);
     try {
-      const title = generateTitle(content);
+      const entryTitle = title.trim() || generateTitle(content);
       const { error } = await supabase
         .from('user_insights')
         .insert({
           user_id: userId,
           category,
           content,
-          title
+          title: entryTitle
         });
 
       if (error) throw error;
@@ -76,6 +78,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
       // Award XP (5 for morning reflection, 5 for evening journal)
       await onComplete(5);
       setContent('');
+      setTitle('');
       await fetchHistory();
     } catch (err) {
       console.error('Error saving entry:', err);
@@ -91,6 +94,13 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
           {category === 'morning' ? 'Morning Reflection' : 'Evening Journal'}
         </h3>
         <div>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Optional title for your entry"
+            className="w-full px-4 py-2 mb-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -142,7 +152,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
                   <div className="flex items-center space-x-3">
                     <Clock className="w-4 h-4 text-gray-500" />
                     <div className="text-left">
-                      <div className="font-medium text-gray-900">{entry.title || 'Untitled Entry'}</div>
+                      <div className="font-medium text-gray-900">{entry.title || generateTitle(entry.content)}</div>
                       <div className="text-sm text-gray-500">{formatDate(entry.created_at)}</div>
                     </div>
                   </div>

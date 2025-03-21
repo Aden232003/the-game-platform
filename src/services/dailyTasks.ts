@@ -33,30 +33,40 @@ const defaultTasks: DailyTask[] = [
 
 export const dailyTasksService = {
   async getDailyTasks() {
-    const { data, error } = await supabase
-      .from('daily_tasks')
-      .select('*')
-      .order('created_at', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('daily_tasks')
+        .select('*')
+        .order('created_at', { ascending: true });
 
-    if (error) {
-      console.error('Error fetching tasks:', error);
+      if (error) {
+        console.error('Error fetching tasks:', error);
+        return defaultTasks;
+      }
+      return data as DailyTask[];
+    } catch (err) {
+      console.error('Error in getDailyTasks:', err);
       return defaultTasks;
     }
-    return data as DailyTask[];
   },
 
   async getCompletedTasks(userId: string, date: string) {
-    const { data, error } = await supabase
-      .from('task_logs')
-      .select('task_id')
-      .eq('user_id', userId)
-      .eq('completion_date', date);
+    try {
+      const { data, error } = await supabase
+        .from('task_logs')
+        .select('task_id')
+        .eq('user_id', userId)
+        .eq('completion_date', date);
 
-    if (error) {
-      console.error('Error fetching completed tasks:', error);
+      if (error) {
+        console.error('Error fetching completed tasks:', error);
+        return [];
+      }
+      return data.map(log => log.task_id);
+    } catch (err) {
+      console.error('Error in getCompletedTasks:', err);
       return [];
     }
-    return data.map(log => log.task_id);
   },
 
   async completeTask(userId: string, taskId: string, reflection?: string, mood?: string) {
@@ -68,9 +78,25 @@ export const dailyTasksService = {
         .eq('id', taskId)
         .single();
 
-      // If task not found in database, use default task
-      const xpReward = task?.xp_reward || defaultTasks.find(t => t.id === taskId)?.xp_reward || 5;
+      if (taskError) {
+        console.error('Error fetching task:', taskError);
+        // If task not found in database, use default task
+        const defaultTask = defaultTasks.find(t => t.id === taskId);
+        if (!defaultTask) {
+          throw new Error('Task not found');
+        }
+        return await this._completeTaskWithXP(userId, taskId, defaultTask.xp_reward, reflection, mood);
+      }
 
+      return await this._completeTaskWithXP(userId, taskId, task.xp_reward, reflection, mood);
+    } catch (err) {
+      console.error('Error completing task:', err);
+      throw err;
+    }
+  },
+
+  async _completeTaskWithXP(userId: string, taskId: string, xpReward: number, reflection?: string, mood?: string) {
+    try {
       // Get current user XP
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -115,31 +141,36 @@ export const dailyTasksService = {
 
       return xpReward;
     } catch (err) {
-      console.error('Error completing task:', err);
+      console.error('Error in _completeTaskWithXP:', err);
       throw err;
     }
   },
 
   async getTaskLogs(userId: string, startDate: string, endDate: string) {
-    const { data, error } = await supabase
-      .from('task_logs')
-      .select(`
-        *,
-        daily_tasks (
-          title,
-          description,
-          xp_reward
-        )
-      `)
-      .eq('user_id', userId)
-      .gte('completion_date', startDate)
-      .lte('completion_date', endDate)
-      .order('completion_date', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('task_logs')
+        .select(`
+          *,
+          daily_tasks (
+            title,
+            description,
+            xp_reward
+          )
+        `)
+        .eq('user_id', userId)
+        .gte('completion_date', startDate)
+        .lte('completion_date', endDate)
+        .order('completion_date', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching task logs:', error);
+      if (error) {
+        console.error('Error fetching task logs:', error);
+        return [];
+      }
+      return data as (TaskLog & { daily_tasks: DailyTask })[];
+    } catch (err) {
+      console.error('Error in getTaskLogs:', err);
       return [];
     }
-    return data as (TaskLog & { daily_tasks: DailyTask })[];
   }
 }; 
