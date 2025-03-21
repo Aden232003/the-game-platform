@@ -1,8 +1,17 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { Feature } from '../types';
-import { Lock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { LucideIcon } from 'lucide-react';
+
+interface Feature {
+  id: string;
+  title: string;
+  description: string;
+  path: string;
+  icon: LucideIcon;
+  color: string;
+  isNew?: boolean;
+}
 
 interface FeatureCardProps {
   feature: Feature;
@@ -10,39 +19,35 @@ interface FeatureCardProps {
 }
 
 const FeatureCard: React.FC<FeatureCardProps> = ({ feature, userXP }) => {
-  const isLocked = userXP < feature.requiredXP;
+  const navigate = useNavigate();
 
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
-      className={`relative rounded-lg shadow-lg overflow-hidden ${feature.color}`}
+      whileTap={{ scale: 0.98 }}
+      onClick={() => navigate(feature.path)}
+      className="relative overflow-hidden rounded-xl bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group"
     >
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      
       <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-white">{feature.title}</h3>
-          {isLocked && (
-            <div className="flex items-center text-white">
-              <Lock size={20} className="mr-2" />
-              <span>{feature.requiredXP} XP required</span>
-            </div>
+        <div className="flex items-start justify-between mb-4">
+          <div className={`p-3 rounded-lg ${feature.color} text-white`}>
+            <feature.icon className="w-6 h-6" />
+          </div>
+          {feature.isNew && (
+            <span className="px-2 py-1 text-xs font-semibold text-white bg-indigo-600 rounded-full">
+              New
+            </span>
           )}
         </div>
-        <p className="text-white/90 mb-4">{feature.description}</p>
-        {isLocked ? (
-          <button 
-            disabled 
-            className="w-full bg-white/20 text-white py-2 px-4 rounded-md cursor-not-allowed"
-          >
-            Locked
-          </button>
-        ) : (
-          <Link 
-            to={feature.path}
-            className="block w-full bg-white text-indigo-600 py-2 px-4 rounded-md text-center hover:bg-white/90 transition-colors"
-          >
-            Enter
-          </Link>
-        )}
+        
+        <h3 className="text-xl font-bold text-gray-900 mb-2">{feature.title}</h3>
+        <p className="text-gray-600 mb-4">{feature.description}</p>
+        
+        <div className="flex items-center text-sm text-gray-500">
+          <span className="font-medium text-indigo-600">Enter</span>
+        </div>
       </div>
     </motion.div>
   );
