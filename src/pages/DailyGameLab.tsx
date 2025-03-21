@@ -47,12 +47,18 @@ const DailyGameLab: React.FC = () => {
   const { user } = useAuth();
 
   useEffect(() => {
+    console.log('DailyGameLab mounted, user:', user);
+    
     const fetchData = async () => {
       try {
+        console.log('Fetching tasks...');
         const [tasksData, completedTasksData] = await Promise.all([
           dailyTasksService.getDailyTasks(),
           user ? dailyTasksService.getCompletedTasks(user.id, new Date().toISOString().split('T')[0]) : []
         ]);
+
+        console.log('Tasks data:', tasksData);
+        console.log('Completed tasks:', completedTasksData);
 
         // If no tasks are found, use default tasks
         if (!tasksData || tasksData.length === 0) {
