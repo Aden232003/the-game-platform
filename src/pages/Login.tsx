@@ -7,12 +7,38 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
+  const [validationError, setValidationError] = useState('');
   const { signIn, signUp, error, loading, clearError } = useAuth();
   const navigate = useNavigate();
+
+  const validatePassword = (password: string) => {
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters long';
+    }
+    if (!/[A-Z]/.test(password)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!/[a-z]/.test(password)) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!/[0-9]/.test(password)) {
+      return 'Password must contain at least one number';
+    }
+    return '';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
+    setValidationError('');
+
+    if (!isLogin) {
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        setValidationError(passwordError);
+        return;
+      }
+    }
 
     try {
       if (isLogin) {
@@ -22,7 +48,6 @@ const Login: React.FC = () => {
       }
       navigate('/daily-game-lab');
     } catch (err) {
-      // Error is handled by AuthContext
       console.error('Authentication error:', err);
     }
   };
@@ -40,9 +65,9 @@ const Login: React.FC = () => {
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
+          {(error || validationError) && (
             <div className="rounded-md bg-red-50 p-4">
-              <p className="text-sm text-red-700">{error.message}</p>
+              <p className="text-sm text-red-700">{error?.message || validationError}</p>
             </div>
           )}
           <div className="rounded-md shadow-sm -space-y-px">
@@ -94,7 +119,10 @@ const Login: React.FC = () => {
             <button
               type="button"
               className="text-sm text-indigo-600 hover:text-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setValidationError('');
+              }}
               disabled={loading}
             >
               {isLogin ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
