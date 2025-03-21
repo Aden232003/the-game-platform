@@ -10,6 +10,33 @@ import { Database } from '../types/supabase';
 
 type DailyTask = Database['public']['Tables']['daily_tasks']['Row'];
 
+const defaultTasks: DailyTask[] = [
+  {
+    id: 'morning-reflection',
+    title: 'Morning Reflection',
+    description: 'Write down your intentions for the day',
+    xp_reward: 5,
+    category: 'mindset',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'social-challenge',
+    title: 'Social Challenge',
+    description: 'Start a conversation with someone new',
+    xp_reward: 10,
+    category: 'social',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'evening-journal',
+    title: 'Evening Journal',
+    description: 'Reflect on your social interactions today',
+    xp_reward: 5,
+    category: 'reflection',
+    created_at: new Date().toISOString()
+  }
+];
+
 const DailyGameLab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,11 +53,21 @@ const DailyGameLab: React.FC = () => {
           dailyTasksService.getDailyTasks(),
           user ? dailyTasksService.getCompletedTasks(user.id, new Date().toISOString().split('T')[0]) : []
         ]);
-        setTasks(tasksData);
+
+        // If no tasks are found, use default tasks
+        if (!tasksData || tasksData.length === 0) {
+          console.log('No tasks found in database, using default tasks');
+          setTasks(defaultTasks);
+        } else {
+          setTasks(tasksData);
+        }
+        
         setCompletedTasks(completedTasksData);
       } catch (err) {
-        setError('Failed to load tasks. Please try again later.');
         console.error('Error fetching tasks:', err);
+        setError('Failed to load tasks. Please try again later.');
+        // Use default tasks as fallback
+        setTasks(defaultTasks);
       } finally {
         setLoading(false);
       }
