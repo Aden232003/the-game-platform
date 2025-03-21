@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Clock, Calendar, Save, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ChevronUp, Clock, Save, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../types/supabase';
 
@@ -17,11 +17,11 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<JournalEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
 
   useEffect(() => {
     fetchHistory();
-  }, []);
+  }, [userId, category]);
 
   const fetchHistory = async () => {
     try {
@@ -34,48 +34,20 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
 
       if (error) throw error;
       setHistory(data || []);
-    } catch (error) {
-      console.error('Error fetching history:', error);
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching history:', err);
     }
   };
 
-  const handleSave = async () => {
-    if (!content.trim()) return;
-
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from('user_insights')
-        .insert({
-          user_id: userId,
-          category,
-          content: content.trim()
-        });
-
-      if (error) throw error;
-
-      // Refresh history
-      await fetchHistory();
-      
-      // Clear current content
-      setContent('');
-      
-      // Award XP
-      onComplete(5);
-      
-      // Close modal
-      onClose();
-    } catch (error) {
-      console.error('Error saving journal entry:', error);
-    } finally {
-      setSaving(false);
-    }
+  const generateTitle = (content: string) => {
+    const words = content.trim().split(/\s+/);
+    const title = words.slice(0, 3).join(' ');
+    return title + (words.length > 3 ? '...' : '');
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -84,69 +56,119 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
     });
   };
 
+  const handleSave = async () => {
+    if (!content.trim()) return;
+
+    setSaving(true);
+    try {
+      const title = generateTitle(content);
+      const { error } = await supabase
+        .from('user_insights')
+        .insert({
+          user_id: userId,
+          category,
+          content,
+          title
+        });
+
+      if (error) throw error;
+
+      // Award XP (5 for morning reflection, 5 for evening journal)
+      await onComplete(5);
+      setContent('');
+      await fetchHistory();
+    } catch (err) {
+      console.error('Error saving entry:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center text-gray-600">
-            <Calendar className="w-4 h-4 mr-1" />
-            <span>{new Date().toLocaleDateString()}</span>
-          </div>
-          <div className="flex items-center text-gray-600">
-            <Clock className="w-4 h-4 mr-1" />
-            <span>{new Date().toLocaleTimeString()}</span>
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900">
+          {category === 'morning' ? 'Morning Reflection' : 'Evening Journal'}
+        </h3>
+        <div>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            rows={6}
+            placeholder={`Write your ${category === 'morning' ? 'intentions for today' : 'reflections on the day'}...`}
+          />
+        </div>
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 hover:text-gray-900"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !content.trim()}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Save Entry
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {history.length > 0 && (
+        <div className="mt-8">
+          <h4 className="text-lg font-semibold text-gray-900 mb-4">Previous Entries</h4>
+          <div className="space-y-2">
+            {history.map((entry) => (
+              <div
+                key={entry.id}
+                className="border border-gray-200 rounded-lg overflow-hidden"
+              >
+                <button
+                  onClick={() => setExpandedEntry(expandedEntry === entry.id ? null : entry.id)}
+                  className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Clock className="w-4 h-4 text-gray-500" />
+                    <div className="text-left">
+                      <div className="font-medium text-gray-900">{entry.title || 'Untitled Entry'}</div>
+                      <div className="text-sm text-gray-500">{formatDate(entry.created_at)}</div>
+                    </div>
+                  </div>
+                  {expandedEntry === entry.id ? (
+                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  )}
+                </button>
+                <AnimatePresence>
+                  {expandedEntry === entry.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="px-4 py-3 bg-white"
+                    >
+                      <div className="whitespace-pre-wrap text-gray-700">{entry.content}</div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
           </div>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving || !content.trim()}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4 mr-2" />
-              Save & Complete
-            </>
-          )}
-        </button>
-      </div>
-
-      <div className="space-y-4">
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={`Write your ${category} reflection here...`}
-          className="w-full h-48 p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-        />
-
-        {history.length > 0 && (
-          <div className="mt-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Previous Entries</h3>
-            <div className="space-y-4">
-              {history.map((entry) => (
-                <motion.div
-                  key={entry.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-gray-50 p-4 rounded-lg"
-                >
-                  <div className="text-sm text-gray-500 mb-2">
-                    {formatDate(entry.created_at)}
-                  </div>
-                  <div className="text-gray-700 whitespace-pre-wrap">
-                    {entry.content}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };

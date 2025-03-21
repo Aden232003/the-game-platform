@@ -71,6 +71,21 @@ export const dailyTasksService = {
       // If task not found in database, use default task
       const xpReward = task?.xp_reward || defaultTasks.find(t => t.id === taskId)?.xp_reward || 5;
 
+      // Get current user XP
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('xp')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        throw profileError;
+      }
+
+      const currentXP = profile?.xp || 0;
+      const newXP = currentXP + xpReward;
+
       // Insert task log
       const { error: logError } = await supabase
         .from('task_logs')
@@ -88,23 +103,14 @@ export const dailyTasksService = {
       }
 
       // Update user XP
-      const { error: profileError } = await supabase
+      const { error: updateError } = await supabase
         .from('profiles')
-        .update({ xp: xpReward })
-        .eq('id', userId)
-        .select('xp')
-        .single()
-        .then(({ data: profile, error }) => {
-          if (error) throw error;
-          return supabase
-            .from('profiles')
-            .update({ xp: (profile?.xp || 0) + xpReward })
-            .eq('id', userId);
-        });
+        .update({ xp: newXP })
+        .eq('id', userId);
 
-      if (profileError) {
-        console.error('Error updating profile XP:', profileError);
-        throw profileError;
+      if (updateError) {
+        console.error('Error updating profile XP:', updateError);
+        throw updateError;
       }
 
       return xpReward;
