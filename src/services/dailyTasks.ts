@@ -97,38 +97,7 @@ export const dailyTasksService = {
 
   async _completeTaskWithXP(userId: string, taskId: string, xpReward: number, reflection?: string, mood?: string) {
     try {
-      // First, try to insert or update the profile
-      const { error: upsertError } = await supabase
-        .from('profiles')
-        .upsert(
-          {
-            id: userId,
-            xp: xpReward,
-            updated_at: new Date().toISOString()
-          },
-          {
-            onConflict: 'id',
-            ignoreDuplicates: false
-          }
-        );
-
-      if (upsertError) {
-        console.error('Error upserting profile:', upsertError);
-        throw upsertError;
-      }
-
-      // Then, update the XP if the profile already exists
-      const { error: updateError } = await supabase.rpc('increment_xp', {
-        user_id: userId,
-        xp_amount: xpReward
-      });
-
-      if (updateError) {
-        console.error('Error updating XP:', updateError);
-        throw updateError;
-      }
-
-      // Insert task log
+      // Insert task log first
       const { error: logError } = await supabase
         .from('task_logs')
         .insert({
@@ -142,6 +111,17 @@ export const dailyTasksService = {
       if (logError) {
         console.error('Error inserting task log:', logError);
         throw logError;
+      }
+
+      // Then update XP using the RPC function
+      const { error: xpError } = await supabase.rpc('increment_xp', {
+        user_id: userId,
+        xp_amount: xpReward
+      });
+
+      if (xpError) {
+        console.error('Error updating XP:', xpError);
+        throw xpError;
       }
 
       return xpReward;
