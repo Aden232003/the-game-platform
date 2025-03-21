@@ -1,5 +1,11 @@
--- Create daily_tasks table if it doesn't exist
-CREATE TABLE IF NOT EXISTS daily_tasks (
+-- Drop existing tables if they exist
+DROP TABLE IF EXISTS task_logs;
+DROP TABLE IF EXISTS daily_tasks;
+DROP TABLE IF EXISTS user_insights;
+DROP TABLE IF EXISTS profiles;
+
+-- Create daily_tasks table with TEXT id
+CREATE TABLE daily_tasks (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT,
@@ -8,8 +14,8 @@ CREATE TABLE IF NOT EXISTS daily_tasks (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- Create task_logs table if it doesn't exist
-CREATE TABLE IF NOT EXISTS task_logs (
+-- Create task_logs table
+CREATE TABLE task_logs (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES auth.users(id),
     task_id TEXT NOT NULL REFERENCES daily_tasks(id),
@@ -19,10 +25,7 @@ CREATE TABLE IF NOT EXISTS task_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- Drop existing user_insights table if it exists
-DROP TABLE IF EXISTS user_insights;
-
--- Create user_insights table with correct schema
+-- Create user_insights table
 CREATE TABLE user_insights (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES auth.users(id),
@@ -32,8 +35,8 @@ CREATE TABLE user_insights (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- Create profiles table if it doesn't exist
-CREATE TABLE IF NOT EXISTS profiles (
+-- Create profiles table
+CREATE TABLE profiles (
     id UUID REFERENCES auth.users(id) PRIMARY KEY,
     username TEXT UNIQUE,
     full_name TEXT,
@@ -69,9 +72,6 @@ CREATE POLICY "Users can insert their own task logs" ON task_logs
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- User insights policies
-DROP POLICY IF EXISTS "Users can view their own insights" ON user_insights;
-DROP POLICY IF EXISTS "Users can insert their own insights" ON user_insights;
-
 CREATE POLICY "Users can view their own insights" ON user_insights
     FOR SELECT USING (auth.uid() = user_id);
 
