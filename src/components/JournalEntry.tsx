@@ -101,6 +101,10 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
 
       console.log('Entry saved successfully:', data);
 
+      // Set the completed state and entry data
+      setIsCompleted(true);
+      setEntry(data);
+
       // Award XP (5 for morning reflection, 5 for evening journal)
       await onComplete(5);
       setContent('');
@@ -115,16 +119,16 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   };
 
   const renderTaskContent = () => {
-    if (isCompleted) {
+    if (isCompleted && entry) {
       return (
-        <div className="space-y-4">
+        <div className="space-y-4 mt-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <CheckCircle2 className="h-5 w-5 text-green-500" />
               <span className="text-green-600 font-medium">Completed</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500">+{entry?.xp_reward} XP</span>
+              <span className="text-sm text-gray-500">+5 XP</span>
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
@@ -137,17 +141,17 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Reflection:</span>
-                  <span className="text-sm text-gray-600">{entry?.reflection || 'No reflection provided'}</span>
+                  <span className="text-sm font-medium text-gray-700">Title:</span>
+                  <span className="text-sm text-gray-600">{entry.title || 'Untitled Entry'}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Mood:</span>
-                  <span className="text-sm text-gray-600">{entry?.mood || 'No mood recorded'}</span>
+                  <span className="text-sm font-medium text-gray-700">Content:</span>
+                  <span className="text-sm text-gray-600">{entry.content}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Completed:</span>
                   <span className="text-sm text-gray-600">
-                    {new Date(entry?.completion_date || '').toLocaleDateString()}
+                    {new Date(entry.created_at).toLocaleDateString()}
                   </span>
                 </div>
               </div>
@@ -156,6 +160,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
         </div>
       );
     }
+    return null;
   };
 
   return (
