@@ -1,18 +1,47 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import FeatureCard from '../components/FeatureCard';
 import { useAuth } from '../contexts/AuthContext';
 import { features } from '../config/features';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Database } from '../types/supabase';
+import { supabase } from '../lib/supabase';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const userXP = (user as unknown as Profile)?.xp || 0;
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 3;
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+          return;
+        }
+
+        setProfile(data);
+      } catch (err) {
+        console.error('Error in fetchProfile:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
 
   const totalPages = Math.ceil(features.length / itemsPerPage);
   const currentFeatures = features.slice(
@@ -28,6 +57,10 @@ const Dashboard: React.FC = () => {
     setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages);
   };
 
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <motion.div
@@ -40,11 +73,11 @@ const Dashboard: React.FC = () => {
           <h1 className="text-4xl font-bold text-gray-900">Welcome Back!</h1>
           <div className="flex items-center justify-center space-x-2">
             <div className="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full">
-              <span className="font-semibold">{userXP}</span> XP
+              <span className="font-semibold">{profile?.xp || 0} XP</span>
             </div>
             <div className="h-4 w-px bg-gray-300"></div>
             <div className="text-gray-600">
-              Level {Math.floor(userXP / 100) + 1}
+              Level {Math.floor(profile?.xp || 0 / 100) + 1}
             </div>
           </div>
         </div>
@@ -75,7 +108,7 @@ const Dashboard: React.FC = () => {
                       ...feature,
                       title: feature.name,
                     }}
-                    userXP={userXP}
+                    userXP={profile?.xp || 0}
                   />
                 ))}
               </motion.div>

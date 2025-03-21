@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, Clock, Save, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Save, Loader2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../types/supabase';
 
@@ -20,6 +20,9 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   const [history, setHistory] = useState<JournalEntry[]>([]);
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [entry, setEntry] = useState<JournalEntry | null>(null);
 
   useEffect(() => {
     fetchHistory();
@@ -108,6 +111,50 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
       setError('Failed to save entry. Please try again.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const renderTaskContent = () => {
+    if (isCompleted) {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+              <span className="text-green-600 font-medium">Completed</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-500">+{entry?.xp_reward} XP</span>
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+              >
+                {isExpanded ? 'Hide Log' : 'View Log'}
+              </button>
+            </div>
+          </div>
+          {isExpanded && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Reflection:</span>
+                  <span className="text-sm text-gray-600">{entry?.reflection || 'No reflection provided'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Mood:</span>
+                  <span className="text-sm text-gray-600">{entry?.mood || 'No mood recorded'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Completed:</span>
+                  <span className="text-sm text-gray-600">
+                    {new Date(entry?.completion_date || '').toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
     }
   };
 
@@ -208,6 +255,8 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
           </div>
         </div>
       )}
+
+      {renderTaskContent()}
     </div>
   );
 };
