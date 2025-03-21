@@ -171,79 +171,30 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   const renderTaskContent = () => {
     if (isCompleted) {
       return (
-        <div 
-          className="space-y-4 mt-6 cursor-pointer hover:bg-gray-50 p-4 rounded-lg transition-colors"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
+        <div className="space-y-4 mt-6 p-4 rounded-lg bg-green-50 border border-green-100">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <CheckCircle2 className="h-5 w-5 text-green-500" />
               <span className="text-green-600 font-medium">Completed</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500">+5 XP</span>
-              <ChevronDown className={`w-5 h-5 text-gray-500 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-            </div>
+            <span className="text-sm text-gray-500">+5 XP</span>
           </div>
-          {isExpanded && (
-            <div className="mt-4 space-y-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="space-y-2">
-                  {entry ? (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Title:</span>
-                        <span className="text-sm text-gray-600">{entry.title || 'Untitled Entry'}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Content:</span>
-                        <span className="text-sm text-gray-600">{entry.content}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Completed:</span>
-                        <span className="text-sm text-gray-600">
-                          {new Date(entry.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-sm text-gray-600">No entry found for today</div>
-                  )}
+          {entry && (
+            <div className="p-4 bg-white rounded-lg">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Title:</span>
+                  <span className="text-sm text-gray-600">{entry.title || 'Untitled Entry'}</span>
                 </div>
-              </div>
-              <div>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Optional title for your entry"
-                  className="w-full px-4 py-2 mb-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  rows={6}
-                  placeholder={`Write your ${category === 'morning' ? 'intentions for today' : 'reflections on the day'}...`}
-                />
-                <div className="flex justify-end mt-3">
-                  <button
-                    onClick={handleSave}
-                    disabled={saving || !content.trim()}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                  >
-                    {saving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Add Entry
-                      </>
-                    )}
-                  </button>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Content:</span>
+                  <span className="text-sm text-gray-600">{entry.content}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Completed:</span>
+                  <span className="text-sm text-gray-600">
+                    {new Date(entry.created_at).toLocaleDateString()}
+                  </span>
                 </div>
               </div>
             </div>
