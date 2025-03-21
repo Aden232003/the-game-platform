@@ -4,6 +4,8 @@ import { CheckCircle, Clock, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { dailyTasksService } from '../services/dailyTasks';
 import Modal from '../components/Modal';
+import JournalEntry from '../components/JournalEntry';
+import SocialChallenge from '../components/SocialChallenge';
 import { Database } from '../types/supabase';
 
 type DailyTask = Database['public']['Tables']['daily_tasks']['Row'];
@@ -15,9 +17,6 @@ const DailyGameLab: React.FC = () => {
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
   const [selectedTask, setSelectedTask] = useState<DailyTask | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [completingTask, setCompletingTask] = useState(false);
-  const [reflection, setReflection] = useState('');
-  const [mood, setMood] = useState('');
   const { user } = useAuth();
 
   useEffect(() => {
@@ -40,30 +39,64 @@ const DailyGameLab: React.FC = () => {
     fetchData();
   }, [user]);
 
-  const handleCompleteTask = async () => {
+  const handleCompleteTask = async (xp: number) => {
     if (!selectedTask || !user) return;
 
-    setCompletingTask(true);
     try {
-      const xpReward = await dailyTasksService.completeTask(
-        user.id,
-        selectedTask.id,
-        reflection,
-        mood
-      );
-      
+      await dailyTasksService.completeTask(user.id, selectedTask.id);
       setCompletedTasks(prev => [...prev, selectedTask.id]);
       setIsModalOpen(false);
-      setReflection('');
-      setMood('');
+      setSelectedTask(null);
       
       // Show success message
-      alert(`Task completed! You earned ${xpReward} XP!`);
+      alert(`Task completed! You earned ${xp} XP!`);
     } catch (err) {
       setError('Failed to complete task. Please try again.');
       console.error('Error completing task:', err);
-    } finally {
-      setCompletingTask(false);
+    }
+  };
+
+  const renderTaskModal = () => {
+    if (!selectedTask || !user) return null;
+
+    switch (selectedTask.category) {
+      case 'mindset':
+        return (
+          <JournalEntry
+            userId={user.id}
+            category="morning"
+            onComplete={handleCompleteTask}
+            onClose={() => {
+              setIsModalOpen(false);
+              setSelectedTask(null);
+            }}
+          />
+        );
+      case 'social':
+        return (
+          <SocialChallenge
+            userId={user.id}
+            onComplete={handleCompleteTask}
+            onClose={() => {
+              setIsModalOpen(false);
+              setSelectedTask(null);
+            }}
+          />
+        );
+      case 'reflection':
+        return (
+          <JournalEntry
+            userId={user.id}
+            category="evening"
+            onComplete={handleCompleteTask}
+            onClose={() => {
+              setIsModalOpen(false);
+              setSelectedTask(null);
+            }}
+          />
+        );
+      default:
+        return null;
     }
   };
 
@@ -145,64 +178,10 @@ const DailyGameLab: React.FC = () => {
         onClose={() => {
           setIsModalOpen(false);
           setSelectedTask(null);
-          setReflection('');
-          setMood('');
         }}
         title={selectedTask?.title || 'Complete Task'}
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Reflection
-            </label>
-            <textarea
-              value={reflection}
-              onChange={(e) => setReflection(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              rows={4}
-              placeholder="Share your thoughts about this task..."
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mood
-            </label>
-            <select
-              value={mood}
-              onChange={(e) => setMood(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">Select your mood</option>
-              <option value="excited">Excited</option>
-              <option value="happy">Happy</option>
-              <option value="neutral">Neutral</option>
-              <option value="anxious">Anxious</option>
-              <option value="tired">Tired</option>
-            </select>
-          </div>
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 text-gray-700 hover:text-gray-900"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleCompleteTask}
-              disabled={completingTask}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-            >
-              {completingTask ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Completing...
-                </>
-              ) : (
-                'Complete Task'
-              )}
-            </button>
-          </div>
-        </div>
+        {renderTaskModal()}
       </Modal>
     </div>
   );
