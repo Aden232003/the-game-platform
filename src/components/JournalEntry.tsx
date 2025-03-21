@@ -54,7 +54,10 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   const checkCompletedStatus = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const { data, error } = await supabase
+      console.log('Checking completion status for:', category, 'on:', today);
+      
+      // First check if there's a task log for today
+      const { data: taskLog, error: taskError } = await supabase
         .from('task_logs')
         .select('*')
         .eq('user_id', userId)
@@ -62,23 +65,34 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
         .eq('completion_date', today)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-        console.error('Error checking completion status:', error);
+      if (taskError && taskError.code !== 'PGRST116') {
+        console.error('Error checking task completion:', taskError);
         return;
       }
 
-      if (data) {
+      if (taskLog) {
+        console.log('Found completed task log:', taskLog);
         setIsCompleted(true);
-        // Fetch the corresponding journal entry
+        
+        // Then fetch the most recent journal entry for today
         const { data: entryData, error: entryError } = await supabase
           .from('user_insights')
           .select('*')
           .eq('user_id', userId)
           .eq('category', category)
-          .eq('created_at', data.completed_at)
+          .gte('created_at', today)
+          .lte('created_at', new Date(new Date(today).setHours(23, 59, 59)).toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
           .single();
 
-        if (!entryError && entryData) {
+        if (entryError && entryError.code !== 'PGRST116') {
+          console.error('Error fetching journal entry:', entryError);
+          return;
+        }
+
+        if (entryData) {
+          console.log('Found journal entry:', entryData);
           setEntry(entryData);
         }
       }
@@ -174,23 +188,29 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
               </button>
             </div>
           </div>
-          {isExpanded && entry && (
+          {isExpanded && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Title:</span>
-                  <span className="text-sm text-gray-600">{entry.title || 'Untitled Entry'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Content:</span>
-                  <span className="text-sm text-gray-600">{entry.content}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Completed:</span>
-                  <span className="text-sm text-gray-600">
-                    {new Date(entry.created_at).toLocaleDateString()}
-                  </span>
-                </div>
+                {entry ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">Title:</span>
+                      <span className="text-sm text-gray-600">{entry.title || 'Untitled Entry'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">Content:</span>
+                      <span className="text-sm text-gray-600">{entry.content}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">Completed:</span>
+                      <span className="text-sm text-gray-600">
+                        {new Date(entry.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-600">No entry found for today</div>
+                )}
               </div>
             </div>
           )}
