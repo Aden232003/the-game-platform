@@ -19,8 +19,11 @@ CREATE TABLE IF NOT EXISTS task_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- Create user_insights table if it doesn't exist
-CREATE TABLE IF NOT EXISTS user_insights (
+-- Drop existing user_insights table if it exists
+DROP TABLE IF EXISTS user_insights;
+
+-- Create user_insights table with correct schema
+CREATE TABLE user_insights (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES auth.users(id),
     category TEXT NOT NULL,
@@ -66,6 +69,9 @@ CREATE POLICY "Users can insert their own task logs" ON task_logs
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- User insights policies
+DROP POLICY IF EXISTS "Users can view their own insights" ON user_insights;
+DROP POLICY IF EXISTS "Users can insert their own insights" ON user_insights;
+
 CREATE POLICY "Users can view their own insights" ON user_insights
     FOR SELECT USING (auth.uid() = user_id);
 

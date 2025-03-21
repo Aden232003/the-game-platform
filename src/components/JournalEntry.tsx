@@ -19,6 +19,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<JournalEntry[]>([]);
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchHistory();
@@ -26,6 +27,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
 
   const fetchHistory = async () => {
     try {
+      console.log('Fetching history for user:', userId, 'category:', category);
       const { data, error } = await supabase
         .from('user_insights')
         .select('*')
@@ -33,10 +35,15 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
         .eq('category', category)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching history:', error);
+        throw error;
+      }
+      console.log('Fetched history:', data);
       setHistory(data || []);
     } catch (err) {
-      console.error('Error fetching history:', err);
+      console.error('Error in fetchHistory:', err);
+      setError('Failed to load previous entries');
     }
   };
 
@@ -59,21 +66,37 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
   };
 
   const handleSave = async () => {
-    if (!content.trim()) return;
+    if (!content.trim()) {
+      setError('Please enter some content before saving');
+      return;
+    }
 
     setSaving(true);
-    try {
-      const entryTitle = title.trim() || generateTitle(content);
-      const { error } = await supabase
-        .from('user_insights')
-        .insert({
-          user_id: userId,
-          category,
-          content,
-          title: entryTitle
-        });
+    setError(null);
 
-      if (error) throw error;
+    try {
+      console.log('Saving entry for user:', userId);
+      const entryTitle = title.trim() || generateTitle(content);
+      const entryData = {
+        user_id: userId,
+        category,
+        content,
+        title: entryTitle
+      };
+      console.log('Entry data:', entryData);
+
+      const { data, error } = await supabase
+        .from('user_insights')
+        .insert(entryData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving entry:', error);
+        throw error;
+      }
+
+      console.log('Entry saved successfully:', data);
 
       // Award XP (5 for morning reflection, 5 for evening journal)
       await onComplete(5);
@@ -81,7 +104,8 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
       setTitle('');
       await fetchHistory();
     } catch (err) {
-      console.error('Error saving entry:', err);
+      console.error('Error in handleSave:', err);
+      setError('Failed to save entry. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -93,6 +117,11 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ userId, category, onComplet
         <h3 className="text-lg font-semibold text-gray-900">
           {category === 'morning' ? 'Morning Reflection' : 'Evening Journal'}
         </h3>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
         <div>
           <input
             type="text"
