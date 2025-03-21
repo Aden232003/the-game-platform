@@ -97,38 +97,35 @@ export const dailyTasksService = {
 
   async _completeTaskWithXP(userId: string, taskId: string, xpReward: number, reflection?: string, mood?: string) {
     try {
-      // Get current user XP
-      const { data: profile, error: profileError } = await supabase
+      // First, try to insert or update the profile
+      const { error: upsertError } = await supabase
         .from('profiles')
-        .select('xp')
-        .eq('id', userId)
-        .single();
+        .upsert(
+          {
+            id: userId,
+            xp: xpReward,
+            updated_at: new Date().toISOString()
+          },
+          {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          }
+        );
 
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-        // If profile doesn't exist, create it
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert({ id: userId, xp: xpReward });
-        
-        if (insertError) {
-          console.error('Error creating profile:', insertError);
-          throw insertError;
-        }
-      } else {
-        // Update existing profile
-        const currentXP = profile?.xp || 0;
-        const newXP = currentXP + xpReward;
-        
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ xp: newXP })
-          .eq('id', userId);
+      if (upsertError) {
+        console.error('Error upserting profile:', upsertError);
+        throw upsertError;
+      }
 
-        if (updateError) {
-          console.error('Error updating profile XP:', updateError);
-          throw updateError;
-        }
+      // Then, update the XP if the profile already exists
+      const { error: updateError } = await supabase.rpc('increment_xp', {
+        user_id: userId,
+        xp_amount: xpReward
+      });
+
+      if (updateError) {
+        console.error('Error updating XP:', updateError);
+        throw updateError;
       }
 
       // Insert task log
