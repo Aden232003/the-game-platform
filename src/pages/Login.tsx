@@ -46,7 +46,7 @@ const Login: React.FC = () => {
       } else {
         await signUp(email, password);
       }
-      navigate('/daily-game-lab');
+      navigate('/daily-lab');
     } catch (err) {
       console.error('Authentication error:', err);
     }
